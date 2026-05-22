@@ -151,4 +151,3 @@ lib/
 <p align="center">
   Designed to make shared expense tracking simple, clean, and easy to manage.
 </p>
-```
