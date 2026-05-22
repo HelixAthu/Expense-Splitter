@@ -1,13 +1,20 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const ExpenseSplitterApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final initialExpenses = _loadExpensesFromPreferences(prefs);
+  runApp(ExpenseSplitterApp(initialExpenses: initialExpenses));
 }
 
 class ExpenseSplitterApp extends StatefulWidget {
-  const ExpenseSplitterApp({super.key});
+  const ExpenseSplitterApp({super.key, this.initialExpenses = const []});
+
+  final List<ExpenseEntry> initialExpenses;
 
   @override
   State<ExpenseSplitterApp> createState() => _ExpenseSplitterAppState();
@@ -113,6 +120,7 @@ class _ExpenseSplitterAppState extends State<ExpenseSplitterApp> {
       darkTheme: darkTheme,
       themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
       home: ExpenseSplitterHomePage(
+        initialExpenses: widget.initialExpenses,
         isDark: _isDark,
         onToggleTheme: _toggleTheme,
       ),
@@ -123,10 +131,12 @@ class _ExpenseSplitterAppState extends State<ExpenseSplitterApp> {
 class ExpenseSplitterHomePage extends StatefulWidget {
   const ExpenseSplitterHomePage({
     super.key,
+    required this.initialExpenses,
     required this.isDark,
     required this.onToggleTheme,
   });
 
+  final List<ExpenseEntry> initialExpenses;
   final bool isDark;
   final VoidCallback onToggleTheme;
 
@@ -136,9 +146,18 @@ class ExpenseSplitterHomePage extends StatefulWidget {
 }
 
 class _ExpenseSplitterHomePageState extends State<ExpenseSplitterHomePage> {
-  final List<ExpenseEntry> _expenses = <ExpenseEntry>[];
-  final Map<String, double> _balances = <String, double>{};
+  static const String _expensesStorageKey = 'expenses';
+
+  late final List<ExpenseEntry> _expenses;
+  late final Map<String, double> _balances;
   int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _expenses = List<ExpenseEntry>.from(widget.initialExpenses);
+    _balances = _buildBalances(_expenses);
+  }
 
   List<String> get _knownPeople {
     final names = _balances.keys.toList()..sort();
@@ -175,13 +194,46 @@ class _ExpenseSplitterHomePageState extends State<ExpenseSplitterHomePage> {
         _balances[participant] = _balances[participant]! - splitAmount;
       }
     });
+
+    _saveExpensesToStorage();
   }
 
-  void _resetDemoData() {
+  Future<void> _clearAllStoredData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
     setState(() {
       _expenses.clear();
       _balances.clear();
     });
+  }
+
+  Future<void> _saveExpensesToStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _expensesStorageKey,
+      _expenses.map((expense) => jsonEncode(expense.toJson())).toList(),
+    );
+  }
+
+  Map<String, double> _buildBalances(List<ExpenseEntry> expenses) {
+    final balances = <String, double>{};
+
+    for (final expense in expenses) {
+      final participantSet = expense.participants.map(_normalizeName).toSet();
+      final splitCount = math.max(1, participantSet.length);
+      final splitAmount = expense.amount / splitCount;
+
+      balances.putIfAbsent(expense.payer, () => 0);
+      balances[expense.payer] = balances[expense.payer]! + expense.amount;
+
+      for (final participant in participantSet) {
+        balances.putIfAbsent(participant, () => 0);
+        balances[participant] = balances[participant]! - splitAmount;
+      }
+    }
+
+    return balances;
   }
 
   @override
@@ -191,13 +243,13 @@ class _ExpenseSplitterHomePageState extends State<ExpenseSplitterHomePage> {
         expenses: _expenses,
         balances: _balances,
         onQuickAdd: _showAddExpenseSheet,
-        onReset: _resetDemoData,
+        onReset: _clearAllStoredData,
       ),
       SummaryView(balances: _balances),
       SettingsView(
         isDark: widget.isDark,
         onToggleTheme: widget.onToggleTheme,
-        onClear: _resetDemoData,
+        onClear: _clearAllStoredData,
       ),
     ];
 
@@ -208,24 +260,16 @@ class _ExpenseSplitterHomePageState extends State<ExpenseSplitterHomePage> {
           'Expense Splitter',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        actions: [
-          IconButton(
-            onPressed: _resetDemoData,
-            tooltip: 'Clear session',
-            icon: const Icon(Icons.restart_alt_rounded),
-          ),
-        ],
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 240),
         child: pages[_selectedIndex],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: _showAddExpenseSheet,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add Expense'),
+        child: const Icon(Icons.add_rounded),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {
@@ -271,6 +315,8 @@ class ExpensesView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final payerCount = expenses.map((expense) => expense.payer).toSet().length;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
       children: [
@@ -292,8 +338,8 @@ class ExpensesView extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
-                label: 'Session only',
-                value: 'Live',
+                label: 'Payers',
+                value: '$payerCount',
                 icon: Icons.bolt_rounded,
               ),
             ),
@@ -301,7 +347,7 @@ class ExpensesView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         if (expenses.isEmpty)
-          _EmptyState(onAddExpense: onQuickAdd, onReset: onReset)
+          _EmptyState(onAddExpense: onQuickAdd)
         else
           ...expenses.map(
             (expense) => Padding(
@@ -341,7 +387,7 @@ class _SettlementsSection extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'All balances are settled for this session.',
+                'All balances are settled.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(
                     context,
@@ -954,10 +1000,9 @@ class _StatCard extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onAddExpense, required this.onReset});
+  const _EmptyState({required this.onAddExpense});
 
   final VoidCallback onAddExpense;
-  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
@@ -997,11 +1042,6 @@ class _EmptyState extends StatelessWidget {
                     onPressed: onAddExpense,
                     child: const Text('Add Expense'),
                   ),
-                ),
-                const SizedBox(width: 12),
-                TextButton(
-                  onPressed: onReset,
-                  child: const Text('Clear session'),
                 ),
               ],
             ),
@@ -1066,6 +1106,50 @@ class ExpenseEntry {
   final List<String> participants;
   final String? description;
   final DateTime createdAt;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'amount': amount,
+      'payer': payer,
+      'participants': participants,
+      'description': description,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  factory ExpenseEntry.fromJson(Map<String, dynamic> json) {
+    return ExpenseEntry(
+      amount: (json['amount'] as num).toDouble(),
+      payer: json['payer'] as String? ?? '',
+      participants:
+          (json['participants'] as List<dynamic>? ?? const <dynamic>[])
+              .map((participant) => participant.toString())
+              .toList(),
+      description: json['description'] as String?,
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.now(),
+    );
+  }
+}
+
+List<ExpenseEntry> _loadExpensesFromPreferences(SharedPreferences prefs) {
+  final storedValues = prefs.getStringList('expenses') ?? const <String>[];
+  final expenses = <ExpenseEntry>[];
+
+  for (final storedValue in storedValues) {
+    try {
+      final decoded = jsonDecode(storedValue);
+      if (decoded is Map<String, dynamic>) {
+        expenses.add(ExpenseEntry.fromJson(decoded));
+      }
+    } catch (_) {
+      continue;
+    }
+  }
+
+  expenses.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  return expenses;
 }
 
 String _normalizeName(String? value) {
