@@ -6,68 +6,129 @@ void main() {
   runApp(const ExpenseSplitterApp());
 }
 
-class ExpenseSplitterApp extends StatelessWidget {
+class ExpenseSplitterApp extends StatefulWidget {
   const ExpenseSplitterApp({super.key});
 
   @override
+  State<ExpenseSplitterApp> createState() => _ExpenseSplitterAppState();
+}
+
+class _ExpenseSplitterAppState extends State<ExpenseSplitterApp> {
+  bool _isDark = true;
+
+  void _toggleTheme() => setState(() => _isDark = !_isDark);
+
+  @override
   Widget build(BuildContext context) {
-    final baseColorScheme = ColorScheme.fromSeed(
+    final darkScheme = ColorScheme.fromSeed(
       seedColor: const Color(0xFF21D4A3),
       brightness: Brightness.dark,
+    );
+
+    final lightScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF21D4A3),
+      brightness: Brightness.light,
+    );
+
+    final darkTheme = ThemeData(
+      brightness: Brightness.dark,
+      useMaterial3: true,
+      colorScheme: darkScheme.copyWith(
+        primary: const Color(0xFF21D4A3),
+        secondary: const Color(0xFF5A8CFF),
+        surface: const Color(0xFF131A24),
+      ),
+      scaffoldBackgroundColor: const Color(0xFF0B1118),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      cardTheme: CardThemeData(
+        color: const Color(0xFF131A24),
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFF17202B),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0xFF21D4A3), width: 1.4),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+      ),
+    );
+
+    final lightTheme = ThemeData(
+      brightness: Brightness.light,
+      useMaterial3: true,
+      colorScheme: lightScheme.copyWith(
+        primary: const Color(0xFF21D4A3),
+        secondary: const Color(0xFF5A8CFF),
+      ),
+      cardTheme: CardThemeData(
+        color: lightScheme.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        // Use a subtle filled color based on the light color scheme
+        fillColor: lightScheme.surfaceVariant.withOpacity(0.6),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(color: lightScheme.primary, width: 1.4),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+      ),
     );
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Expense Splitter',
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        useMaterial3: true,
-        colorScheme: baseColorScheme.copyWith(
-          primary: const Color(0xFF21D4A3),
-          secondary: const Color(0xFF5A8CFF),
-          surface: const Color(0xFF131A24),
-        ),
-        scaffoldBackgroundColor: const Color(0xFF0B1118),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: false,
-        ),
-        cardTheme: CardThemeData(
-          color: const Color(0xFF131A24),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFF17202B),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(18),
-            borderSide: const BorderSide(color: Color(0xFF21D4A3), width: 1.4),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
-          ),
-        ),
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
+      home: ExpenseSplitterHomePage(
+        isDark: _isDark,
+        onToggleTheme: _toggleTheme,
       ),
-      home: const ExpenseSplitterHomePage(),
     );
   }
 }
 
 class ExpenseSplitterHomePage extends StatefulWidget {
-  const ExpenseSplitterHomePage({super.key});
+  const ExpenseSplitterHomePage({
+    super.key,
+    required this.isDark,
+    required this.onToggleTheme,
+  });
+
+  final bool isDark;
+  final VoidCallback onToggleTheme;
 
   @override
   State<ExpenseSplitterHomePage> createState() =>
@@ -133,6 +194,11 @@ class _ExpenseSplitterHomePageState extends State<ExpenseSplitterHomePage> {
         onReset: _resetDemoData,
       ),
       SummaryView(balances: _balances),
+      SettingsView(
+        isDark: widget.isDark,
+        onToggleTheme: widget.onToggleTheme,
+        onClear: _resetDemoData,
+      ),
     ];
 
     return Scaffold(
@@ -177,6 +243,11 @@ class _ExpenseSplitterHomePageState extends State<ExpenseSplitterHomePage> {
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet_rounded),
             label: 'Summary',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings_rounded),
+            label: 'Settings',
           ),
         ],
       ),
@@ -271,9 +342,11 @@ class _SettlementsSection extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Text(
                 'All balances are settled for this session.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.72),
+                ),
               ),
             ),
           )
@@ -373,7 +446,11 @@ class SummaryView extends StatelessWidget {
                             Text(
                               isOwed ? 'is owed money' : 'owes money',
                               style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: Colors.white70),
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface.withOpacity(0.72),
+                                  ),
                             ),
                           ],
                         ),
@@ -392,6 +469,61 @@ class SummaryView extends StatelessWidget {
               ),
             );
           }),
+      ],
+    );
+  }
+}
+
+class SettingsView extends StatelessWidget {
+  const SettingsView({
+    super.key,
+    required this.isDark,
+    required this.onToggleTheme,
+    required this.onClear,
+  });
+
+  final bool isDark;
+  final VoidCallback onToggleTheme;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+      children: [
+        const _HeroHeader(
+          title: 'Settings',
+          subtitle: 'Customize the app and manage session data.',
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Column(
+            children: [
+              SwitchListTile(
+                title: const Text('Dark mode'),
+                subtitle: Text(
+                  isDark ? 'Using dark theme' : 'Using light theme',
+                ),
+                value: isDark,
+                onChanged: (_) => onToggleTheme(),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: onClear,
+                        child: const Text('Clear session data'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -456,8 +588,8 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
 
     return SafeArea(
       child: Container(
-        decoration: const BoxDecoration(
-          color: Color(0xFF0F1620),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomInset),
@@ -473,7 +605,9 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                     width: 44,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: Colors.white24,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.24),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
@@ -488,9 +622,11 @@ class _AddExpenseSheetState extends State<AddExpenseSheet> {
                 const SizedBox(height: 6),
                 Text(
                   'Enter the payer and everyone who shared the cost.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.72),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
@@ -622,9 +758,11 @@ class ExpenseCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         'Paid by ${expense.payer}',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(0.72),
+                        ),
                       ),
                     ],
                   ),
@@ -647,7 +785,7 @@ class ExpenseCard extends StatelessWidget {
                     (name) => Chip(
                       label: Text(name),
                       side: BorderSide.none,
-                      backgroundColor: const Color(0xFF17202B),
+                      backgroundColor: Theme.of(context).colorScheme.surface,
                     ),
                   )
                   .toList(),
@@ -656,23 +794,29 @@ class ExpenseCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.04),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.04),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.calculate_rounded,
                     size: 18,
-                    color: Colors.white70,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.72),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '${expense.participants.length} people split it equally at \$${share.toStringAsFixed(2)} each',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.72),
+                      ),
                     ),
                   ),
                 ],
@@ -693,17 +837,35 @@ class _HeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final gradient = isDark
+        ? const LinearGradient(
+            colors: [Color(0xFF17202B), Color(0xFF0F1620)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : const LinearGradient(
+            colors: [Color(0xFFFFFFFF), Color(0xFFF3F6F9)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+
+    final titleColor = Theme.of(context).colorScheme.onSurface;
+    final subtitleColor = Theme.of(
+      context,
+    ).colorScheme.onSurface.withOpacity(0.72);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF17202B), Color(0xFF0F1620)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: gradient,
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withOpacity(isDark ? 0.05 : 0.04),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -713,15 +875,15 @@ class _HeroHeader extends StatelessWidget {
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.w900,
               height: 1.05,
+              color: titleColor,
             ),
           ),
           const SizedBox(height: 10),
           Text(
             subtitle,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white70,
-              height: 1.4,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: subtitleColor, height: 1.4),
           ),
         ],
       ),
@@ -745,9 +907,11 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF131A24),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+        ),
       ),
       child: Row(
         children: [
@@ -767,9 +931,11 @@ class _StatCard extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.72),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -817,7 +983,9 @@ class _EmptyState extends StatelessWidget {
             Text(
               'Add an expense to start tracking who paid and how much each person owes.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white70,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.72),
                 height: 1.4,
               ),
             ),
@@ -871,7 +1039,9 @@ class _EmptySummary extends StatelessWidget {
             Text(
               'Balances appear here as soon as you add shared expenses.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.white70,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.72),
                 height: 1.4,
               ),
             ),
